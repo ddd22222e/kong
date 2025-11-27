@@ -2,568 +2,409 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- 这一行让App在手机上全屏运行，禁止缩放 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- PWA 配置开始 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0a0a0a">
+    <link rel="apple-touch-icon" href="icon.png"> <!-- 记得上传 icon.png -->
+    <link rel="icon" type="image/png" href="icon.png">
+    <!-- PWA 配置结束 -->
+
     <title>空 | KŪ</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;500;700&family=Zen+Maru+Gothic:wght@300;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;500;700&family=Zen+Maru+Gothic:wght@400;700&display=swap');
 
         :root {
-            --bg-color: #0c0c0e;
-            --text-main: #f2f2f2;
-            --text-sub: #888888;
-            --border: rgba(255, 255, 255, 0.08);
+            --text: #ffffff;
+            --glass: rgba(255, 255, 255, 0.08);
         }
 
         body, html {
             margin: 0; padding: 0; width: 100%; height: 100%;
-            background-color: var(--bg-color);
-            color: var(--text-main);
+            background-color: #0a0a0a;
+            color: var(--text);
             font-family: 'Noto Serif SC', serif;
             overflow: hidden;
             -webkit-tap-highlight-color: transparent;
-            transition: background-color 1.5s ease;
+            /* 禁止长按选中 */
+            user-select: none;
+            -webkit-user-select: none;
         }
 
-        /* 环境光 */
-        #ambient-bg {
+        /* 背景 */
+        #bg-canvas {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 0; opacity: 0.5; filter: blur(90px);
-            transition: background 2s ease;
-            background: radial-gradient(circle at 50% 30%, #1e1e24 0%, transparent 60%),
-                        radial-gradient(circle at 80% 80%, #111114 0%, transparent 50%);
+            z-index: 0; filter: blur(80px) saturate(140%);
+            transition: opacity 1s ease;
+        }
+        #base-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -1; background: #0a0a0a; transition: background 1.5s ease;
         }
 
         #app {
             position: relative; z-index: 10; width: 100%; height: 100%;
             display: flex; flex-direction: column;
+            padding-bottom: env(safe-area-inset-bottom);
         }
 
-        /* 顶部 */
-        .header { padding-top: 50px; padding-bottom: 10px; text-align: center; }
-        .navbar { display: flex; justify-content: center; gap: 60px; margin-bottom: 10px; }
-        .nav-item {
-            font-size: 16px; color: var(--text-sub); cursor: pointer;
-            position: relative; padding-bottom: 8px; transition: 0.4s; letter-spacing: 2px;
-        }
-        .nav-item.active { color: var(--text-main); font-weight: 500; }
-        .nav-item.active::after {
-            content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
-            width: 20px; height: 1px; background: var(--text-main);
-        }
-        .greeting { font-size: 10px; color: var(--text-sub); opacity: 0.5; letter-spacing: 2px; font-family: sans-serif; }
+        /* 导航 */
+        .navbar { padding-top: 60px; display: flex; justify-content: center; gap: 60px; z-index: 100; }
+        .nav-item { font-size: 15px; color: rgba(255,255,255,0.5); cursor: pointer; padding: 10px; transition: 0.4s; letter-spacing: 3px; }
+        .nav-item.active { color: #fff; font-weight: 600; text-shadow: 0 0 20px rgba(255,255,255,0.4); }
 
         /* 视图 */
-        .viewport { flex: 1; position: relative; }
-        .page {
-            position: absolute; width: 100%; height: 100%;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            opacity: 0; pointer-events: none; transition: opacity 0.6s ease;
-        }
+        .viewport { flex: 1; position: relative; width: 100%; }
+        .page { position: absolute; top:0; left:0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.6s ease; }
         .page.active { opacity: 1; pointer-events: auto; }
 
-        /* 释放页 UI */
-        .input-container {
-            width: 85%; max-width: 380px; text-align: center;
-            transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
-        }
+        /* === 释放页 === */
+        .release-container { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+        .input-box { width: 85%; max-width: 400px; position: relative; z-index: 50; transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1); }
         textarea {
-            width: 100%; height: 140px;
-            background: transparent; border: none;
-            border-bottom: 1px solid var(--border);
-            color: var(--text-main);
-            font-family: 'Noto Serif SC', serif; font-size: 20px; line-height: 1.8;
-            text-align: center; resize: none; outline: none;
-            padding: 10px; margin-bottom: 50px;
-            transition: border-color 0.3s;
+            width: 100%; height: 180px; background: rgba(255,255,255,0.03); border: none; border-radius: 20px;
+            color: #fff; font-family: 'Noto Serif SC', serif; font-size: 20px; line-height: 1.8; text-align: center; resize: none; outline: none;
+            padding: 30px 20px; margin-bottom: 10px; transition: all 0.3s; pointer-events: auto; backdrop-filter: blur(20px);
+            user-select: text; -webkit-user-select: text; /* 允许输入框选中 */
         }
-        textarea::placeholder { color: rgba(255,255,255,0.1); font-style: italic; font-size: 16px; }
-        textarea:focus { border-color: rgba(255,255,255,0.3); }
-
-        .btn-release {
-            width: 76px; height: 76px; border-radius: 50%;
-            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.15);
-            color: var(--text-main); font-size: 22px; cursor: pointer;
-            display: flex; align-items: center; justify-content: center; margin: 0 auto;
-            transition: all 0.2s; backdrop-filter: blur(5px);
-            box-shadow: 0 0 30px rgba(0,0,0,0.2);
-        }
-        .btn-release:hover { background: rgba(255,255,255,0.1); transform: scale(1.05); border-color: rgba(255,255,255,0.4); }
-        .btn-release:active { transform: scale(0.95); }
-
-        /* 信纸卡片 */
-        .card-wrapper {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; align-items: center; justify-content: center;
-            pointer-events: none; z-index: 20;
-        }
-        .paper-card {
-            width: 80%; max-width: 320px; padding: 50px 35px;
-            background: #f0f0eb; color: #1a1a1a;
-            box-shadow: 0 25px 70px rgba(0,0,0,0.6);
-            border-radius: 3px; 
-            text-align: left; /* 左对齐更有信件感 */
-            opacity: 0; transform: translateY(40px) rotate(-1deg);
-            transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
-            position: relative;
-        }
-        .paper-card::before { /* 纸张纹理 */
-            content: ''; position: absolute; top:0; left:0; width:100%; height:100%;
-            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23000000' fill-opacity='0.03'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z' /%3E%3C/g%3E%3C/svg%3E");
-            pointer-events: none; opacity: 0.5;
-        }
-        .paper-card.show { opacity: 1; transform: translateY(0) rotate(0deg); pointer-events: auto; }
+        textarea:focus { background: rgba(255,255,255,0.06); box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+        textarea::placeholder { color: rgba(255,255,255,0.2); font-style: italic; font-size: 14px; letter-spacing: 1px; }
         
-        .card-text { font-size: 18px; line-height: 1.8; margin-bottom: 40px; font-weight: 500; position: relative; }
-        .card-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 20px; position: relative; }
-        .card-sign { font-size: 10px; letter-spacing: 2px; color: #666; text-transform: uppercase; }
-        .card-btn { font-size: 12px; cursor: pointer; color: #333; border: 1px solid #ccc; padding: 6px 20px; border-radius: 20px; opacity: 0.8; transition:0.2s; background: rgba(255,255,255,0.5); }
-        .card-btn:hover { opacity: 1; background: #333; color: #fff; border-color: #333; }
+        .privacy-hint { font-size: 10px; color: rgba(255,255,255,0.2); text-align: center; margin-bottom: 40px; letter-spacing: 1px; font-family: sans-serif; }
+
+        .btn-orb {
+            width: 70px; height: 70px; border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #fff, rgba(255,255,255,0.3));
+            box-shadow: 0 0 60px rgba(255,255,255,0.4); cursor: pointer; position: relative; z-index: 100;
+            transition: transform 0.3s; margin-bottom: 80px;
+        }
+        .btn-orb:active { transform: scale(0.9); opacity: 0.9; }
+
+        /* 结果卡片 */
+        .card-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 200; opacity: 0; transition: 0.5s; }
+        .card-layer.show { opacity: 1; pointer-events: auto; }
+        .soul-card {
+            width: 82%; max-width: 340px; padding: 50px 30px; background: rgba(20, 20, 20, 0.9); border: 1px solid rgba(255,255,255,0.15);
+            box-shadow: 0 40px 100px rgba(0,0,0,0.6); text-align: center; border-radius: 16px; backdrop-filter: blur(40px);
+            transform: translateY(20px); transition: 0.6s cubic-bezier(0.2, 1, 0.3, 1); color: #fff;
+        }
+        .card-layer.show .soul-card { transform: translateY(0); }
+        .card-time { font-size: 10px; opacity: 0.4; letter-spacing: 2px; margin-bottom: 20px; font-family: 'Zen Maru Gothic', sans-serif; }
+        .card-content { font-size: 19px; line-height: 1.8; margin-bottom: 40px; font-weight: 400; opacity: 0.95; }
+        .card-btn { font-size: 12px; color: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.3); padding: 10px 28px; border-radius: 30px; display: inline-block; cursor: pointer; transition: 0.2s; }
+        .card-btn:hover { border-color: #fff; color: #fff; background: rgba(255,255,255,0.1); }
+
+        /* 底部主题 */
+        .theme-switcher { position: absolute; bottom: 50px; display: flex; gap: 25px; z-index: 50; background: rgba(255,255,255,0.05); padding: 10px 20px; border-radius: 30px; backdrop-filter: blur(10px); }
+        .t-dot { width: 10px; height: 10px; border-radius: 50%; cursor: pointer; transition: 0.3s; opacity: 0.6; }
+        .t-dot.active { transform: scale(1.4); opacity: 1; box-shadow: 0 0 10px currentColor; }
+        .dot-void { background: #a1a1aa; color: #a1a1aa; } .dot-dream { background: #fbbf24; color: #fbbf24; } .dot-mist { background: #99f6e4; color: #99f6e4; }
 
         /* 冥想页 */
-        .meditate-wrapper { position: relative; display: flex; flex-direction: column; align-items: center; }
-        .blob {
-            width: 220px; height: 220px;
-            background: radial-gradient(circle at 30% 30%, #52525b, #18181b);
-            border-radius: 50%;
-            box-shadow: -10px -10px 30px rgba(255,255,255,0.05), 10px 10px 30px rgba(0,0,0,0.5);
-            cursor: pointer; position: relative; z-index: 10;
-            transition: transform 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-        }
-        .guide-text {
-            margin-top: 70px; font-family: 'Zen Maru Gothic', sans-serif;
-            font-size: 14px; letter-spacing: 6px; opacity: 0.5; transition: opacity 0.5s;
-        }
-        .sub-guide { position: absolute; bottom: -60px; font-size: 11px; color: #555; opacity: 0.6; }
+        .meditate-container { display: flex; flex-direction: column; align-items: center; width: 100%; }
+        .breath-ring { width: 240px; height: 240px; border: 1px solid rgba(255,255,255,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; position: relative; margin-top: 30px; cursor: pointer; }
+        .breath-core { width: 60px; height: 60px; background: #fff; border-radius: 50%; opacity: 0.9; filter: blur(20px); transition: transform 0.1s linear; box-shadow: 0 0 50px rgba(255,255,255,0.3); }
+        .timer-display { position: absolute; font-size: 18px; font-family: 'Zen Maru Gothic', sans-serif; color: rgba(255,255,255,0.6); pointer-events: none; }
+        .guide-text { margin-top: 50px; font-size: 14px; letter-spacing: 4px; color: rgba(255,255,255,0.7); }
+        
+        .mode-selector { display: flex; gap: 40px; margin-top: 60px; }
+        .mode-btn { font-size: 12px; color: rgba(255,255,255,0.4); cursor: pointer; padding: 6px 12px; transition: 0.3s; letter-spacing: 1px; }
+        .mode-btn.active { color: #fff; border-bottom: 1px solid #fff; }
 
-        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+        /* 音效选择器 (新增) */
+        .sound-selector { display: flex; gap: 30px; margin-top: 30px; }
+        .sound-btn { font-size: 12px; color: rgba(255,255,255,0.4); cursor: pointer; padding: 8px 16px; border-radius: 20px; border: 1px solid transparent; transition: 0.3s; letter-spacing: 1px; }
+        .sound-btn:hover { background: rgba(255,255,255,0.05); }
+        .sound-btn.active { color: #fff; border-color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.1); }
 
+        #fx-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 20; }
+        .creator-sign { position: absolute; bottom: 15px; width: 100%; text-align: center; font-size: 10px; color: rgba(255,255,255,0.2); letter-spacing: 1px; font-family: sans-serif; pointer-events: none; z-index: 5; }
     </style>
 </head>
 <body>
 
-    <div id="ambient-bg"></div>
+    <div id="base-layer"></div>
+    <canvas id="bg-canvas"></canvas>
     <canvas id="fx-canvas"></canvas>
 
     <div id="app">
-        <div class="header">
-            <div class="navbar">
-                <div class="nav-item active" onclick="switchTab('release')">释 放</div>
-                <div class="nav-item" onclick="switchTab('meditate')">冥 想</div>
-            </div>
-            <div class="greeting" id="greeting-text"></div>
+        <div class="navbar">
+            <div class="nav-item active" onclick="switchTab('release')">释 放</div>
+            <div class="nav-item" onclick="switchTab('meditate')">冥 想</div>
         </div>
 
         <div class="viewport">
-            <!-- 释放 -->
+            <!-- 释放页 -->
             <div class="page active" id="page-release">
-                <div class="input-container" id="input-box">
-                    <textarea id="mood-input" placeholder=""></textarea>
-                    <div class="btn-release" onclick="triggerRelease()">✕</div>
+                <div class="release-container">
+                    <div class="input-box" id="input-ui">
+                        <textarea id="mood-input" placeholder=""></textarea>
+                        <div class="privacy-hint">文字仅在本地粉碎，不会上传云端</div>
+                    </div>
+                    <div class="btn-orb" id="btn-ui" onclick="triggerRelease()"></div>
+                    
+                    <div class="theme-switcher" id="theme-ui">
+                        <div class="t-dot dot-void active" onclick="setTheme('void')"></div>
+                        <div class="t-dot dot-dream" onclick="setTheme('dream')"></div>
+                        <div class="t-dot dot-mist" onclick="setTheme('mist')"></div>
+                    </div>
                 </div>
 
-                <div class="card-wrapper">
-                    <div class="paper-card" id="result-card">
-                        <div class="card-text" id="card-content"></div>
-                        <div class="card-footer">
-                            <div class="card-sign">ANSWER</div>
-                            <div class="card-btn" onclick="resetCard()">收好</div>
-                        </div>
+                <div class="card-layer" id="card-layer">
+                    <div style="position:absolute;width:100%;height:100%;" onclick="resetCard()"></div>
+                    <div class="soul-card">
+                        <div class="card-time" id="card-time">00:00</div>
+                        <div class="card-content" id="card-text"></div>
+                        <div class="card-btn" onclick="resetCard()">收下能量</div>
                     </div>
                 </div>
             </div>
 
-            <!-- 冥想 -->
+            <!-- 冥想页 -->
             <div class="page" id="page-meditate">
-                <div class="meditate-wrapper">
-                    <div class="blob" id="breath-blob"></div>
-                    <div class="guide-text" id="guide-text">静</div>
-                    <div class="sub-guide">长按以聚焦 · 松开即放下</div>
+                <div class="meditate-container">
+                    <div class="breath-ring" id="breath-trigger">
+                        <div class="breath-core" id="breath-visual"></div>
+                        <div class="timer-display" id="timer-text"></div>
+                    </div>
+                    <div class="guide-text" id="guide-text">点击光环开始</div>
+                    
+                    <div class="mode-selector">
+                        <div class="mode-btn active" onclick="setBreathMode('sleep')">安睡</div>
+                        <div class="mode-btn" onclick="setBreathMode('focus')">专注</div>
+                        <div class="mode-btn" onclick="setBreathMode('balance')">平衡</div>
+                    </div>
+
+                    <div class="sound-selector">
+                        <div class="sound-btn active" onclick="setSound('ambient')">灵</div>
+                        <div class="sound-btn" onclick="setSound('rain')">雨</div>
+                        <div class="sound-btn" onclick="setSound('waves')">潮</div>
+                    </div>
                 </div>
             </div>
         </div>
+        
+        <div class="creator-sign">Created by 你的名字</div>
     </div>
 
 <script>
-    /* 
-       ================================================================
-       1. 共情内容库 (The Deep Empathy Library) 
-       更具体、更温暖、更像人类的语言
-       ================================================================
-    */
+    /* ==============================================
+       1. 智能文案引擎 (Smart Sentiment Engine)
+       ============================================== */
     const Library = {
-        // 随机提示语，诱导用户倾诉
         placeholders: [
-            "今天发生了什么让你不开心的事？",
-            "那个让你睡不着的问题是什么？",
-            "如果不考虑后果，你现在想说什么？",
-            "这里没有别人，把包袱卸下来吧。",
-            "写下那个让你纠结的名字，然后深呼吸。",
-            "最近是不是对自己太苛刻了？"
+            "最近有什么放不下的事？",
+            "那些没说出口的话，留在这里吧...",
+            "这里很安全，可以稍微脆弱一会儿。",
+            "脑海里那个关不掉的声音在说什么？"
         ],
-        // 治愈金句：按场景分类（逻辑上混合随机抽取）
-        affirmations: [
-            // 自我接纳与焦虑
-            "你的大脑在编故事吓唬你，别信它。",
-            "做不到满分没关系，做个60分也比0分强。",
-            "今天偷个懒没关系，地球照样转，你也照样可爱。",
-            "不要为了去迎合别人，而把自己削成奇怪的形状。",
-            "你已经做得很好了，这不是客套话。",
-            "允许自己做个废物，哪怕只有十分钟。",
-            "焦虑是因为你想把未来也扛在肩上，先放下。",
-            "除了你自己，没人在盯着你的失误看。",
-            "你的价值不取决于你今天的产出效率。",
-            
-            // 生活琐事与安慰
-            "去吃顿好的，碳水化合物会原谅你。",
-            "点外卖凑不够满减也没关系。",
-            "不想回消息就别回了，你的电量只够照顾自己。",
-            "被窝是绝对安全的堡垒，躲进去吧。",
-            "去洗个热水澡，把这一身疲惫冲掉。",
-            "房间乱一点也没事，那是生活的痕迹。",
-            
-            // 情感与人际
-            "合不来的人就像不合脚的鞋，脱掉它你会走得更快。",
-            "你不需要向任何人证明你的疲惫。",
-            "有些关系结束了，不代表你失败了。",
-            "在这个时刻，你不需要取悦任何人。",
-            
-            // 哲思与希望
-            "不是所有的花都在春天开放，你的花期由你定义。",
-            "这一关很难，但你会跨过去的，像以前一样。",
-            "这一分钟过去后，它就是历史了。",
-            "那些让你痛苦的缝隙，是光照进来的地方。",
-            "今晚的月亮是为你亮的，晚安。"
-        ]
+        categories: {
+            guilt: ["别责怪自己，你只是太累了。","不必强迫自己原谅，把伤口交给时间。","你不需要向任何人证明你的疲惫。","除了你自己，其实没有人在审判你。"],
+            anxious: ["焦虑是想要控制不可控的未来，回到当下。","这一关很难，但你会跨过去的。","松一口气吧，世界不会因为你停下一秒而崩塌。","松开手，沙子才不会漏得那么快。"],
+            lonely: ["今晚的月亮是为你亮的，世界依然爱着你。","拥抱一下那个在心里哭泣的小孩吧。","那些让你痛苦的缝隙，也是光照进来的地方。","你不是一座孤岛，这一刻，我在。"],
+            angry: ["水至清则无鱼，放过自己，也放过万物。","合不来的人就像不合脚的鞋，脱掉它。","在这个时刻，你不需要取悦任何人。","把情绪倒出来，然后转身离开。"],
+            tired: ["去洗个热水澡，把这一身疲惫冲掉。","被窝是绝对安全的堡垒，躲进去吧。","这一分钟过去后，它就变成了历史。","没事了，都过去了。好好睡一觉。"],
+            general: ["你比你想象的更坚韧。","生活是旷野，不是轨道。","我看见了你的努力，这就足够了。"]
+        },
+        getAffirmation(text) {
+            const t = text.toLowerCase();
+            if (t.match(/累|困|死|想睡|疲|倦/)) return this.getRandom('tired');
+            if (t.match(/恨|气|烦|滚|讨厌|凭什么/)) return this.getRandom('angry');
+            if (t.match(/错|对不起|不好|失败|差|笨|蠢/)) return this.getRandom('guilt');
+            if (t.match(/怕|慌|担心|怎么办|未来|钱|工作/)) return this.getRandom('anxious');
+            if (t.match(/孤独|没人|爱|分手|想念|他|她/)) return this.getRandom('lonely');
+            const hour = new Date().getHours();
+            if (hour >= 0 && hour < 4) return "深夜是灵魂的避难所，把重担放下吧。";
+            return this.getRandom('general');
+        },
+        getRandom(category) {
+            const pool = this.categories[category];
+            return pool[Math.floor(Math.random() * pool.length)];
+        }
     };
 
-    /* 
-       ================================================================
-       2. 高级声效引擎 (Advanced Sound Synthesis)
-       不使用MP3，直接用代码生成高保真、清脆的物理音效
-       ================================================================
-    */
+    /* ==============================================
+       2. 极光背景与交互
+       ============================================== */
+    const bgCanvas = document.getElementById('bg-canvas');
+    const baseLayer = document.getElementById('base-layer');
+    const bgCtx = bgCanvas.getContext('2d');
+    let bgW, bgH, orbs = [], mouse = { x: -500, y: -500 };
+    let currentPalette = 'void'; 
+
+    const palettes = {
+        void: { colors: ['#525252', '#737373', '#262626'], bg: '#0a0a0a' },
+        dream: { colors: ['#fb923c', '#e879f9', '#f43f5e'], bg: '#1c1010' },
+        mist: { colors: ['#5eead4', '#94a3b8', '#0f766e'], bg: '#0f1515' }
+    };
+
+    class Orb {
+        constructor() { this.init(); }
+        init() {
+            this.x = Math.random() * bgW;
+            this.y = Math.random() * bgH;
+            this.r = Math.random() * 250 + 150; 
+            this.vx = (Math.random() - 0.5) * 0.3;
+            this.vy = (Math.random() - 0.5) * 0.3;
+            this.updateColor();
+        }
+        updateColor() {
+            const p = palettes[currentPalette].colors;
+            this.color = p[Math.floor(Math.random() * p.length)];
+        }
+        update() {
+            this.x += this.vx; this.y += this.vy;
+            const dx = mouse.x - this.x; const dy = mouse.y - this.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if(dist < 400) {
+                const force = (400 - dist) / 400;
+                this.x -= dx * force * 0.03; this.y -= dy * force * 0.03;
+            }
+            if(this.x < -this.r) this.x = bgW + this.r;
+            if(this.x > bgW + this.r) this.x = -this.r;
+            if(this.y < -this.r) this.y = bgH + this.r;
+            if(this.y > bgH + this.r) this.y = -this.r;
+        }
+        draw() {
+            bgCtx.beginPath();
+            const g = bgCtx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.r);
+            g.addColorStop(0, this.color); g.addColorStop(1, 'transparent');
+            bgCtx.fillStyle = g; bgCtx.globalAlpha = 0.5;
+            bgCtx.arc(this.x, this.y, this.r, 0, Math.PI*2); bgCtx.fill();
+        }
+    }
+
+    function initBg() { bgW = window.innerWidth; bgH = window.innerHeight; bgCanvas.width = bgW; bgCanvas.height = bgH; orbs = []; for(let i=0; i<6; i++) orbs.push(new Orb()); }
+    function animateBg() { bgCtx.clearRect(0, 0, bgW, bgH); bgCtx.globalCompositeOperation = 'screen'; orbs.forEach(o => { o.update(); o.draw(); }); requestAnimationFrame(animateBg); }
+    
+    window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+    window.addEventListener('touchmove', e => { mouse.x = e.touches[0].clientX; mouse.y = e.touches[0].clientY; });
+    window.addEventListener('resize', initBg);
+    initBg(); animateBg();
+
+    /* ==============================================
+       3. 音频与逻辑
+       ============================================== */
     const AudioEngine = {
-        ctx: new (window.AudioContext || window.webkitAudioContext)(),
-        
-        init() { if(this.ctx.state === 'suspended') this.ctx.resume(); },
-
-        // 创建白噪音 Buffer
-        createNoiseBuffer() {
-            const bufferSize = this.ctx.sampleRate * 2; // 2 seconds
-            const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-            const data = buffer.getChannelData(0);
-            for (let i = 0; i < bufferSize; i++) {
-                data[i] = Math.random() * 2 - 1;
-            }
-            return buffer;
+        ctx: null, activeNodes: [],
+        init() { try { if (!this.ctx) this.ctx = new (window.AudioContext||window.webkitAudioContext)(); if (this.ctx.state === 'suspended') this.ctx.resume(); return true; } catch(e){return false;} },
+        stopAll() { this.activeNodes.forEach(n => { try{n.stop(); n.disconnect();}catch(e){} }); this.activeNodes = []; },
+        playShatter() {
+            if(!this.init()) return;
+            try {
+                const t=this.ctx.currentTime; const b=this.ctx.createBuffer(1,this.ctx.sampleRate,this.ctx.sampleRate);
+                const d=b.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+                const s=this.ctx.createBufferSource(); s.buffer=b;
+                const f=this.ctx.createBiquadFilter(); f.type='highpass'; f.frequency.value=1500;
+                const g=this.ctx.createGain(); g.gain.setValueAtTime(0.5,t); g.gain.exponentialRampToValueAtTime(0.01,t+0.1);
+                s.connect(f); f.connect(g); g.connect(this.ctx.destination); s.start(t);
+                [2000,4000].forEach((fr,i)=>{
+                    const o=this.ctx.createOscillator(); const og=this.ctx.createGain();
+                    o.frequency.value=fr; og.gain.setValueAtTime(0.05,t); og.gain.exponentialRampToValueAtTime(0.001,t+0.15);
+                    o.connect(og); og.connect(this.ctx.destination); o.start(t); o.stop(t+0.2);
+                });
+            } catch(e){}
         },
-
-        // 核心：播放“清脆破碎”音效 (Glass/Ice Crack)
-        playCrack() {
-            this.init();
-            const t = this.ctx.currentTime;
-            
-            // 1. 高频瞬态噪音 (The Snap)
-            const noise = this.ctx.createBufferSource();
-            noise.buffer = this.createNoiseBuffer();
-            const noiseFilter = this.ctx.createBiquadFilter();
-            noiseFilter.type = 'highpass';
-            noiseFilter.frequency.value = 1000;
-            const noiseGain = this.ctx.createGain();
-            noiseGain.gain.setValueAtTime(0.8, t);
-            noiseGain.gain.exponentialRampToValueAtTime(0.01, t + 0.1); // 极短的爆发
-            noise.connect(noiseFilter);
-            noiseFilter.connect(noiseGain);
-            noiseGain.connect(this.ctx.destination);
-            noise.start(t);
-
-            // 2. 随机高频正弦波 (The Ringing shards)
-            // 生成 3-5 个不同频率的高音，模拟碎片撞击
-            for(let i=0; i<4; i++) {
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                osc.type = 'sine';
-                // 随机频率 2000Hz - 5000Hz
-                osc.frequency.value = 2000 + Math.random() * 3000; 
-                gain.gain.setValueAtTime(0.1, t);
-                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1 + Math.random() * 0.2);
-                osc.connect(gain);
-                gain.connect(this.ctx.destination);
-                osc.start(t);
-                osc.stop(t + 0.3);
-            }
-        },
-
-        // 核心：播放“气泡/水滴”音效 (Bubble Pop)
-        playPop() {
-            this.init();
-            const t = this.ctx.currentTime;
-            const osc = this.ctx.createOscillator();
-            const gain = this.ctx.createGain();
-            
-            osc.type = 'sine';
-            // 快速下潜的音调 (Pitch Drop)
-            osc.frequency.setValueAtTime(800, t);
-            osc.frequency.exponentialRampToValueAtTime(100, t + 0.15);
-            
-            gain.gain.setValueAtTime(0.5, t);
-            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
-            
-            osc.connect(gain);
-            gain.connect(this.ctx.destination);
-            osc.start(t);
-            osc.stop(t + 0.2);
-        },
-
-        // 核心：播放“纸张/枯叶”音效 (Crunch)
-        playCrunch() {
-            this.init();
-            const t = this.ctx.currentTime;
-            const noise = this.ctx.createBufferSource();
-            noise.buffer = this.createNoiseBuffer();
-            
-            const filter = this.ctx.createBiquadFilter();
-            filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(800, t);
-            filter.frequency.linearRampToValueAtTime(100, t + 0.2); // 频率随时间变暗
-
-            const gain = this.ctx.createGain();
-            gain.gain.setValueAtTime(0.5, t);
-            gain.gain.linearRampToValueAtTime(0, t + 0.2);
-
-            noise.connect(filter);
-            filter.connect(gain);
-            gain.connect(this.ctx.destination);
-            noise.start(t);
-        },
-
-        // 冥想音调 (Tone)
-        toneOsc: null,
-        toneGain: null,
-        startTone() {
-            this.init();
-            if(!this.toneOsc) {
-                this.toneOsc = this.ctx.createOscillator();
-                this.toneGain = this.ctx.createGain();
-                this.toneOsc.frequency.value = 150; // 低频
-                this.toneGain.gain.value = 0;
-                this.toneOsc.connect(this.toneGain);
-                this.toneGain.connect(this.ctx.destination);
-                this.toneOsc.start();
-            }
-            // 平滑过渡
-            this.toneOsc.frequency.setTargetAtTime(220, this.ctx.currentTime, 1);
-            this.toneGain.gain.setTargetAtTime(0.15, this.ctx.currentTime, 0.5);
-        },
-        stopTone() {
-            if(this.toneOsc) {
-                this.toneOsc.frequency.setTargetAtTime(150, this.ctx.currentTime, 1);
-                this.toneGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.5);
-            }
-        }
+        playAmbient() { if(!this.init()) return; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.frequency.value=110; g.gain.value=0.15; o.connect(g); g.connect(this.ctx.destination); o.start(); this.activeNodes.push(o); },
+        playRain() { if(!this.init()) return; const b=this.ctx.createBuffer(1,2*this.ctx.sampleRate,this.ctx.sampleRate); const d=b.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*0.1; const s=this.ctx.createBufferSource(); s.buffer=b; s.loop=true; const g=this.ctx.createGain(); g.gain.value=0.2; s.connect(g); g.connect(this.ctx.destination); s.start(); this.activeNodes.push(s); },
+        playWaves() { if(!this.init()) return; const b=this.ctx.createBuffer(1,2*this.ctx.sampleRate,this.ctx.sampleRate); const d=b.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; const s=this.ctx.createBufferSource(); s.buffer=b; s.loop=true; const f=this.ctx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=400; const g=this.ctx.createGain(); g.gain.value=0.15; const lfo=this.ctx.createOscillator(); lfo.frequency.value=0.1; const lg=this.ctx.createGain(); lg.gain.value=300; lfo.connect(lg); lg.connect(f.frequency); lfo.start(); s.connect(f); f.connect(g); g.connect(this.ctx.destination); s.start(); this.activeNodes=[s,l]; },
+        playBell() { if(!this.init())return; const t=this.ctx.currentTime; const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.frequency.value=200; g.gain.setValueAtTime(0.2,t); g.gain.exponentialRampToValueAtTime(0.001,t+4); o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+4); }
     };
+    ['click','touchstart'].forEach(e=>document.addEventListener(e,()=>AudioEngine.init(),{once:true}));
 
-    /* ================= 3. 视觉粒子系统 ================= */
-    const canvas = document.getElementById('fx-canvas');
-    const ctx = canvas.getContext('2d');
-    let w, h, particles = [];
+    const fxCanvas = document.getElementById('fx-canvas'); const fxCtx = fxCanvas.getContext('2d'); let fxW, fxH, particles = [];
+    function initFx() { fxW=window.innerWidth; fxH=window.innerHeight; fxCanvas.width=fxW; fxCanvas.height=fxH; }
+    window.addEventListener('resize', initFx); initFx();
+    function spawnParticles(x, y, color) { AudioEngine.playShatter(); if(navigator.vibrate) navigator.vibrate(40); for(let i=0; i<50; i++) { const a=Math.random()*Math.PI*2; const s=Math.random()*8+2; particles.push({x:x, y:y, vx:Math.cos(a)*s, vy:Math.sin(a)*s, life:1, decay:Math.random()*0.02+0.01, color:color||'#fff', size:Math.random()*3+1}); } }
+    function animateFx() { fxCtx.clearRect(0,0,fxW,fxH); for(let i=particles.length-1; i>=0; i--) { let p=particles[i]; p.x+=p.vx; p.y+=p.vy; p.vx*=0.94; p.vy*=0.94; p.life-=p.decay; fxCtx.globalAlpha=p.life; fxCtx.fillStyle=p.color; fxCtx.beginPath(); fxCtx.arc(p.x, p.y, p.size, 0, Math.PI*2); fxCtx.fill(); if(p.life<=0) particles.splice(i,1); } requestAnimationFrame(animateFx); }
+    animateFx();
 
-    function resize() { w = window.innerWidth; h = window.innerHeight; canvas.width = w; canvas.height = h; }
-    window.addEventListener('resize', resize);
-    resize();
-
-    function spawnParticles(x, y) {
-        // 随机决定类型：0=Glass(尖锐), 1=Pop(圆润), 2=Crunch(细碎)
-        const type = Math.random();
-        let mode = 'glass';
-        
-        if(type < 0.4) {
-            mode = 'glass';
-            AudioEngine.playCrack(); // 播放清脆破碎音
-        } else if (type < 0.7) {
-            mode = 'pop';
-            AudioEngine.playPop(); // 播放气泡音
-        } else {
-            mode = 'crunch';
-            AudioEngine.playCrunch(); // 播放揉纸音
-        }
-
-        // 震动反馈
-        if(navigator.vibrate) navigator.vibrate(30);
-
-        const count = mode === 'pop' ? 15 : 50;
-
-        for(let i=0; i<count; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = Math.random() * 12 + 2;
-            particles.push({
-                x: x, y: y,
-                vx: Math.cos(angle) * speed,
-                vy: Math.sin(angle) * speed,
-                life: 1,
-                decay: Math.random() * 0.03 + 0.01,
-                mode: mode,
-                color: mode === 'glass' ? '#fff' : (mode === 'pop' ? '#a5f3fc' : '#e5e5e5'),
-                size: Math.random() * 6 + 2,
-                rot: Math.random() * Math.PI
-            });
-        }
-    }
-
-    function animate() {
-        ctx.clearRect(0,0,w,h);
-        for(let i=particles.length-1; i>=0; i--) {
-            let p = particles[i];
-            p.x += p.vx; p.y += p.vy;
-            p.vx *= 0.92; p.vy *= 0.92; // 阻力
-            p.life -= p.decay;
-            
-            ctx.save();
-            ctx.translate(p.x, p.y);
-            ctx.globalAlpha = p.life;
-            ctx.fillStyle = p.color;
-            
-            if(p.mode === 'glass') {
-                // 三角形碎片
-                ctx.rotate(p.rot + p.life);
-                ctx.beginPath();
-                ctx.moveTo(0, -p.size); ctx.lineTo(p.size/2, p.size); ctx.lineTo(-p.size/2, p.size);
-                ctx.fill();
-            } else if (p.mode === 'pop') {
-                // 圆形水珠
-                ctx.beginPath();
-                ctx.arc(0, 0, p.size, 0, Math.PI*2);
-                ctx.fill();
-            } else {
-                // 随机碎屑
-                ctx.rotate(p.rot);
-                ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size/2);
-            }
-            ctx.restore();
-
-            if(p.life <= 0) particles.splice(i,1);
-        }
-        requestAnimationFrame(animate);
-    }
-    animate();
-
-    /* ================= 4. APP 交互逻辑 ================= */
+    /* UI Logic */
     const ui = {
-        inputBox: document.getElementById('input-box'),
         input: document.getElementById('mood-input'),
-        cardWrapper: document.querySelector('.card-wrapper'),
-        card: document.getElementById('result-card'),
-        cardContent: document.getElementById('card-content'),
-        greeting: document.getElementById('greeting-text'),
-        bg: document.getElementById('ambient-bg')
+        inputUi: document.getElementById('input-ui'),
+        btnUi: document.getElementById('btn-ui'),
+        themeUi: document.getElementById('theme-ui'),
+        cardLayer: document.getElementById('card-layer'),
+        cardText: document.getElementById('card-text'),
+        cardTime: document.getElementById('card-time'),
+        navs: document.querySelectorAll('.nav-item'),
+        pages: [document.getElementById('page-release'), document.getElementById('page-meditate')]
     };
 
-    // 初始化
-    function initApp() {
-        const hour = new Date().getHours();
-        let text = "Good Day";
-        if(hour < 6) text = "深夜了，世界很安静";
-        else if(hour < 11) text = "早安，新的一天";
-        else if(hour < 14) text = "午安，记得休息";
-        else if(hour < 19) text = "下午好";
-        else text = "晚上好，卸下疲惫吧";
-        ui.greeting.innerText = text;
-        
-        setRandomPlaceholder();
-    }
-    initApp();
+    ui.input.placeholder = Library.placeholders[Math.floor(Math.random()*Library.placeholders.length)];
+    window.setTheme = (theme) => { currentPalette = theme; baseLayer.style.background = palettes[theme].bg; orbs.forEach(o => o.updateColor()); document.querySelectorAll('.t-dot').forEach(d => d.classList.remove('active')); event.target.classList.add('active'); };
 
-    function setRandomPlaceholder() {
-        ui.input.placeholder = Library.placeholders[Math.floor(Math.random() * Library.placeholders.length)];
-    }
-
-    // 释放功能
     window.triggerRelease = () => {
-        if(!ui.input.value.trim()) return;
+        const text = ui.input.value.trim();
+        if(!text) return;
+        const rect = document.getElementById('btn-ui').getBoundingClientRect();
+        let pColor = currentPalette==='dream' ? '#ffccff' : (currentPalette==='mist' ? '#ccfffa' : '#fff');
+        spawnParticles(rect.left+35, rect.top+35, pColor);
 
-        // 触发粒子和音效
-        const btn = document.querySelector('.btn-release');
-        const rect = btn.getBoundingClientRect();
-        spawnParticles(rect.left + 38, rect.top + 38);
+        ui.inputUi.style.opacity = 0; ui.inputUi.style.transform = 'scale(0.95)'; ui.inputUi.style.pointerEvents = 'none';
+        ui.btnUi.style.opacity = 0; ui.btnUi.style.transform = 'scale(0)'; ui.themeUi.style.opacity = 0;
 
-        // UI 隐藏
-        ui.inputBox.style.opacity = 0;
-        ui.inputBox.style.transform = 'scale(0.9)';
-        ui.inputBox.style.pointerEvents = 'none';
-
-        // 抽取文案
-        const sentence = Library.affirmations[Math.floor(Math.random() * Library.affirmations.length)];
-        ui.cardContent.innerText = sentence;
-
-        // 显示卡片
-        setTimeout(() => {
-            ui.card.classList.add('show');
-        }, 500);
+        ui.cardText.innerText = Library.getAffirmation(text);
+        const now = new Date();
+        ui.cardTime.innerText = `${now.getHours()}:${String(now.getMinutes()).padStart(2,'0')}`;
+        setTimeout(() => ui.cardLayer.classList.add('show'), 500);
     };
 
     window.resetCard = () => {
-        ui.card.classList.remove('show');
+        ui.cardLayer.classList.remove('show');
         setTimeout(() => {
             ui.input.value = '';
-            setRandomPlaceholder();
-            ui.inputBox.style.opacity = 1;
-            ui.inputBox.style.transform = 'scale(1)';
-            ui.inputBox.style.pointerEvents = 'auto';
+            ui.input.placeholder = Library.placeholders[Math.floor(Math.random()*Library.placeholders.length)];
+            ui.inputUi.style.opacity = 1; ui.inputUi.style.transform = 'scale(1)'; ui.inputUi.style.pointerEvents = 'auto';
+            ui.btnUi.style.opacity = 1; ui.btnUi.style.transform = 'scale(1)';
+            ui.themeUi.style.opacity = 0.8;
         }, 500);
     };
 
-    // 切换 Tab
-    window.switchTab = (tab) => {
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-        
-        if(tab === 'release') {
-            document.querySelectorAll('.nav-item')[0].classList.add('active');
-            document.getElementById('page-release').classList.add('active');
-            ui.bg.style.background = 'radial-gradient(circle at 50% 30%, #1e1e24 0%, transparent 60%), radial-gradient(circle at 80% 80%, #111114 0%, transparent 50%)';
+    window.switchTab = (t) => {
+        ui.navs.forEach(n => n.classList.remove('active')); ui.pages.forEach(p => p.classList.remove('active'));
+        if(t === 'release') {
+            ui.navs[0].classList.add('active'); ui.pages[0].classList.add('active'); stopMeditation();
+            const theme = document.querySelector('.t-dot.active').getAttribute('onclick').match(/'(\w+)'/)[1]; window.setTheme(theme);
         } else {
-            document.querySelectorAll('.nav-item')[1].classList.add('active');
-            document.getElementById('page-meditate').classList.add('active');
-            ui.bg.style.background = 'radial-gradient(circle at 50% 50%, #27272a 0%, transparent 70%), radial-gradient(circle at 20% 90%, #18181b 0%, transparent 50%)';
+            ui.navs[1].classList.add('active'); ui.pages[1].classList.add('active'); baseLayer.style.background = '#0a0a0a'; currentPalette = 'void'; orbs.forEach(o => o.updateColor());
         }
     };
 
-    /* ================= 5. 冥想球物理 ================= */
-    const blob = document.getElementById('breath-blob');
-    const guide = document.getElementById('guide-text');
-    let blobScale = 1;
-    let isPressing = false;
+    let currentSound='ambient'; let isMeditating=false; let breathTimer=null;
+    const visual=document.getElementById('breath-visual'); const guide=document.getElementById('guide-text'); const timerText=document.getElementById('timer-text'); const trigger=document.getElementById('breath-trigger');
 
-    const startPress = (e) => { 
-        e.preventDefault(); isPressing = true; guide.innerText = "吸 气"; 
-        AudioEngine.startTone();
-        if(navigator.vibrate) navigator.vibrate(20);
+    window.setSound = (s) => {
+        currentSound = s; document.querySelectorAll('.sound-btn').forEach(b => b.classList.remove('active')); event.target.classList.add('active');
+        if(isMeditating) { AudioEngine.stopAll(); playSound(s); }
     };
-    const endPress = (e) => { 
-        e.preventDefault(); isPressing = false; guide.innerText = "呼 气"; 
-        AudioEngine.stopTone();
-    };
+    function playSound(s) { if(s==='ambient') AudioEngine.playAmbient(); else if(s==='rain') AudioEngine.playRain(); else if(s==='waves') AudioEngine.playWaves(); }
 
-    blob.addEventListener('mousedown', startPress);
-    blob.addEventListener('touchstart', startPress);
-    window.addEventListener('mouseup', endPress);
-    window.addEventListener('touchend', endPress);
-
-    function animateBlob() {
-        if(isPressing) blobScale += (2.4 - blobScale) * 0.04;
-        else blobScale += (1.0 - blobScale) * 0.06;
-        
-        // 蠕动效果
-        const t = Date.now() / 1200;
-        const r1 = 50 + Math.sin(t) * 3;
-        const r2 = 50 + Math.cos(t) * 2;
-        blob.style.borderRadius = `${r1}% ${100-r1}% ${r2}% ${100-r2}% / ${r2}% ${r1}% ${100-r2}% ${100-r1}%`;
-        blob.style.transform = `scale(${blobScale})`;
-        
-        requestAnimationFrame(animateBlob);
+    trigger.addEventListener('click', () => isMeditating ? stopMeditation() : startMeditation());
+    function startMeditation() { isMeditating=true; playSound(currentSound); AudioEngine.playBell(); guide.innerText="吸 气"; runBreathCycle(); }
+    function stopMeditation() { isMeditating=false; clearTimeout(breathTimer); AudioEngine.stopAll(); visual.style.transform='scale(0.5)'; guide.innerText="点击光环开始"; timerText.innerText=""; }
+    
+    function startCount(d) { let l=d; timerText.innerText=l; const i=setInterval(()=>{ l--; if(l>0 && isMeditating) timerText.innerText=l; else clearInterval(i); },1000); }
+    function runBreathCycle() {
+        if(!isMeditating) return;
+        let stages=[];
+        if(breathMode==='sleep') stages=[{t:'吸 气',s:4,sc:3.5,o:0.5},{t:'屏 息',s:7,sc:3.5,o:0.5},{t:'呼 气',s:8,sc:1,o:0.9}];
+        else if(breathMode==='focus') stages=[{t:'吸 气',s:4,sc:3.5,o:0.5},{t:'屏 息',s:4,sc:3.5,o:0.5},{t:'呼 气',s:4,sc:1,o:0.9},{t:'屏 息',s:4,sc:1,o:0.9}];
+        else stages=[{t:'吸 气',s:5.5,sc:3.5,o:0.5},{t:'呼 气',s:5.5,sc:1,o:0.9}];
+        let idx=0;
+        function next() {
+            if(!isMeditating) return; const st=stages[idx];
+            guide.innerText=st.t; startCount(Math.ceil(st.s));
+            visual.style.transition=`transform ${st.s}s linear, opacity ${st.s}s`;
+            visual.style.transform=`scale(${st.sc})`; visual.style.opacity=st.o;
+            breathTimer=setTimeout(()=>{ idx=(idx+1)%stages.length; next(); },st.s*1000);
+        }
+        next();
     }
-    animateBlob();
-
 </script>
 </body>
 </html>
